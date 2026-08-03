@@ -426,8 +426,12 @@
           </div>
         </div>
 
-        <p class="text-[10px] text-slate-600 leading-relaxed">
-          Interactions are stored locally and can be sent to Supabase once connected (so we can see which assumptions people explore most).
+        <button id="modelToBet" class="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-300 text-sm font-medium active:scale-95 transition">
+          Bet 2032 →
+        </button>
+
+        <p id="modelRunsLabel" class="text-[10px] text-slate-600 leading-relaxed text-center">
+          Model runs are logged anonymously.
         </p>
       </div>
     </section>
@@ -500,17 +504,25 @@
 
   <script>
     // ============================================================
-    // SUPABASE CONFIG — paste your keys here when ready
+    // SUPABASE CONFIG
+    // ------------------------------------------------------------
+    // This is a static site, so there is no build step to inline
+    // process.env. Values below mirror the project env vars:
+    //   NEXT_PUBLIC_SUPABASE_URL
+    //   NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // Both are public, RLS-protected values — safe to ship client-side.
+    // If either is blank, the app falls back to localStorage.
     // ============================================================
-    const SUPABASE_URL = '';          // e.g. https://xxxx.supabase.co
-    const SUPABASE_ANON_KEY = '';     // e.g. eyJhbGciOi...
+    const SUPABASE_URL = 'https://fggqeoqxolbemxfofhce.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZ3Flb3F4b2xiZW14Zm9maGNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MjY2ODEsImV4cCI6MjEwMTMwMjY4MX0.z4F6xqDs7x8hzDP2GuBLgi7SryrY6_MOR83GtgFchT8';
 
-    // Works immediately with localStorage until you add Supabase keys.
-    // ============================================================
+    const TABLE = 'predictions';
+    const SUPABASE_ENABLED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
     let selectedYear = 2032;
     let allPredictions = [];
     let distChart = null;
+    let usingRemote = false;
 
     // Seed predictions from real replies to @brian_armstrong's tweet
     const SEED_PREDICTIONS = [
@@ -552,6 +564,33 @@
       localStorage.setItem(getStorageKey(), JSON.stringify(arr));
     }
 
+    // ---------- Supabase REST helpers ----------
+
+    function sbHeaders(extra) {
+      return Object.assign({
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }, extra || {});
+    }
+
+    function sbFetch(path, init) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      return fetch(`${SUPABASE_URL}/rest/v1/${path}`, Object.assign({ signal: controller.signal }, init))
+        .finally(() => clearTimeout(timer));
+    }
+
+    function normalizeRow(row) {
+      return {
+        id: row.id || null,
+        year: Number(row.year),
+        handle: row.handle || null,
+        reason: row.reason || null,
+        ts: row.created_at || row.ts || new Date().toISOString(),
+        source: row.source || 'user'
+      };
+    }
+
     function mergeWithSeeds(userPredictions) {
       // Always include seed predictions from the original tweet
       // User predictions (local/remote) are layered on top
@@ -563,66 +602,90 @@
     }
 
     async function fetchFromSupabase() {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+      if (!SUPABASE_ENABLED) return null;
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/predictions?select=*&order=created_at.desc&limit=500`, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        });
-        if (!res.ok) return null;
-        return await res.json();
+        const res = await sbFetch(
+          `${TABLE}?select=id,year,handle,reason,created_at&order=created_at.desc&limit=500`,
+          { headers: sbHeaders() }
+        );
+        if (!res.ok) {
+          console.warn('[supabase] read failed', res.status, await res.text());
+          return null;
+        }
+        const rows = await res.json();
+        return Array.isArray(rows) ? rows.map(normalizeRow) : null;
       } catch (e) {
-        console.warn('Supabase fetch failed', e);
+        console.warn('[supabase] read error', e);
         return null;
       }
     }
 
     async function insertToSupabase(payload) {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+      if (!SUPABASE_ENABLED) return null;
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/predictions`, {
+        const res = await sbFetch(TABLE, {
           method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          headers: sbHeaders({
             'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
+            'Prefer': 'return=representation'
+          }),
           body: JSON.stringify(payload)
         });
-        return res.ok;
-      } catch { return false; }
+        if (!res.ok) {
+          console.warn('[supabase] insert failed', res.status, await res.text());
+          return null;
+        }
+        const rows = await res.json();
+        return Array.isArray(rows) && rows[0] ? normalizeRow(rows[0]) : null;
+      } catch (e) {
+        console.warn('[supabase] insert error', e);
+        return null;
+      }
     }
+
+    // ---------- Load / submit ----------
 
     async function loadPredictions() {
       const remote = await fetchFromSupabase();
-      let userPreds = [];
-      if (remote && Array.isArray(remote)) {
-        userPreds = remote.map(r => ({
-          year: r.year,
-          handle: r.handle || null,
-          reason: r.reason || null,
-          ts: r.created_at || Date.now(),
-          source: 'user'
-        }));
+      let userPreds;
+      if (remote) {
+        usingRemote = true;
+        userPreds = remote;
       } else {
-        userPreds = loadLocal().map(p => ({ ...p, source: p.source || 'user' }));
+        usingRemote = false;
+        userPreds = loadLocal().map(normalizeRow);
       }
       allPredictions = mergeWithSeeds(userPreds);
       renderCrowd();
     }
 
     async function submitPrediction(year, handle, reason) {
-      const entry = { year, handle: handle || null, reason: reason || null, ts: new Date().toISOString(), source: 'user' };
-      await insertToSupabase({ year, handle: handle || null, reason: reason || null });
+      const payload = {
+        year: Number(year),
+        handle: handle ? handle.slice(0, 40) : null,
+        reason: reason ? reason.slice(0, 200) : null
+      };
+
+      const saved = await insertToSupabase(payload);
+      const entry = saved || normalizeRow(Object.assign({ ts: new Date().toISOString() }, payload));
+
+      if (saved) {
+        // Re-read so the feed reflects everyone else's bets too.
+        const remote = await fetchFromSupabase();
+        if (remote) {
+          usingRemote = true;
+          // Rebuild with seeds so the chart always includes original tweet replies
+          allPredictions = mergeWithSeeds(remote);
+          return true;
+        }
+      }
+
+      // Supabase unavailable (or not configured) — persist locally instead.
       const local = loadLocal();
       local.unshift(entry);
       saveLocal(local.slice(0, 300));
-      // Rebuild with seeds so chart always includes original tweet replies
-      allPredictions = mergeWithSeeds(local);
-      return true;
+      allPredictions = mergeWithSeeds(local.map(normalizeRow));
+      return Boolean(saved);
     }
 
     function updateYearUI(year) {
@@ -638,7 +701,8 @@
     function renderCrowd() {
       const n = allPredictions.length;
       $('betCount').textContent = n;
-      $('totalBetsLabel').textContent = n > 0 ? `${n} live` : 'Live';
+      const suffix = usingRemote ? '' : ' · offline';
+      $('totalBetsLabel').textContent = (n > 0 ? `${n} live` : 'Live') + suffix;
 
       if (n === 0) {
         $('medianYear').textContent = '—';
@@ -815,7 +879,10 @@
     });
 
     // ---------- Interactive model ----------
-    function trackModelInteraction(payload) {
+    const MODEL_TABLE = 'model_interactions';
+    let lastLoggedSignature = null;
+
+    async function trackModelInteraction(payload) {
       // Local tracking (always)
       try {
         const key = 'agentic_model_interactions_v1';
@@ -824,23 +891,55 @@
         localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
       } catch {}
 
-      // Optional Supabase (when keys are present)
-      // You can later create a table: model_interactions (agent_growth, tx_size_growth, human_growth, start_share, predicted_year, created_at)
-      if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-        fetch(`${SUPABASE_URL}/rest/v1/model_interactions`, {
+      if (!SUPABASE_ENABLED) return;
+
+      // Skip if the settled assumptions are identical to the last logged run.
+      const signature = JSON.stringify(payload);
+      if (signature === lastLoggedSignature) return;
+      lastLoggedSignature = signature;
+
+      try {
+        const res = await sbFetch(MODEL_TABLE, {
           method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
+          headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
           body: JSON.stringify(payload)
-        }).catch(() => {});
+        });
+        if (!res.ok) {
+          console.warn('[supabase] model log failed', res.status, await res.text());
+          return;
+        }
+        loadModelRuns();
+      } catch (e) {
+        console.warn('[supabase] model log error', e);
+      }
+    }
+
+    async function loadModelRuns() {
+      if (!SUPABASE_ENABLED) return;
+      try {
+        const res = await sbFetch(
+          `${MODEL_TABLE}?select=predicted_year&order=created_at.desc&limit=500`,
+          { headers: sbHeaders() }
+        );
+        if (!res.ok) return;
+
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) return;
+
+        const years = rows.map(r => Number(r.predicted_year)).filter(Number.isFinite).sort((a, b) => a - b);
+        if (!years.length) return;
+
+        const mid = Math.floor(years.length / 2);
+        const median = years.length % 2 ? years[mid] : Math.round((years[mid - 1] + years[mid]) / 2);
+        $('modelRunsLabel').textContent =
+          `${years.length} model run${years.length === 1 ? '' : 's'} logged · median output ${median}`;
+      } catch (e) {
+        console.warn('[supabase] model runs error', e);
       }
     }
 
     let modelTrackTimeout = null;
+    let lastModelYear = 2032;
     function updateModel() {
       const agentG = parseInt($('agentGrowth').value) / 100;
       const txSizeG = parseInt($('txSizeGrowth').value) / 100;
@@ -887,6 +986,11 @@
                    year <= 2036 ? 'Slower adoption / smaller avg tx' : 'Very conservative path';
       $('modelNote').textContent = note;
 
+      // Let the user bet the year their own assumptions produced.
+      lastModelYear = year;
+      const betYear = Math.min(Math.max(year, 2027), 2040);
+      $('modelToBet').textContent = `Bet ${betYear >= 2040 ? '2040+' : betYear} →`;
+
       // Debounced tracking so we don't spam on every pixel of slider movement
       clearTimeout(modelTrackTimeout);
       modelTrackTimeout = setTimeout(() => {
@@ -904,14 +1008,27 @@
       $(id).addEventListener('input', updateModel);
     });
 
+    $('modelToBet').addEventListener('click', () => {
+      updateYearUI(Math.min(Math.max(lastModelYear, 2027), 2040));
+      $('afterBet').classList.add('hidden');
+      $('betCard').classList.remove('hidden');
+      $('betCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
     // Init
     updateYearUI(2032);
     loadPredictions();
     updateModel();
+    loadModelRuns();
 
+    // Poll for new bets, but only when the tab is visible.
     setInterval(() => {
-      if (SUPABASE_URL && SUPABASE_ANON_KEY) loadPredictions();
+      if (SUPABASE_ENABLED && document.visibilityState === 'visible') loadPredictions();
     }, 30000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (SUPABASE_ENABLED && document.visibilityState === 'visible') loadPredictions();
+    });
   </script>
 </body>
 </html>
