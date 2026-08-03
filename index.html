@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Place Your Bet · Agentic Finance Flippening</title>
+  
+  <!-- Open Graph / Twitter Cards for high engagement when shared on X -->
+  <meta name="description" content="When will agent-to-agent payment volume exceed human-to-human? Place your bet. Live wisdom of the crowd.">
+  <meta property="og:title" content="Place Your Bet · Agentic Finance Flippening">
+  <meta property="og:description" content="Brian Armstrong asked when A2A payments will overtake H2H. Join the prediction market. Live crowd wisdom.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Place Your Bet · Agentic Finance Flippening">
+  <meta name="twitter:description" content="When do AI agents start transacting more than humans? Drop your year. See the crowd's median in real time.">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    :root {
+      --bg: #070b14;
+      --card: #0f1623;
+      --border: #1c2536;
+    }
+    body {
+      background: var(--bg);
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100dvh;
+    }
+    .glass {
+      background: rgba(15, 22, 35, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #38bdf8 0%, #a78bfa 45%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .bet-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #0ea5e9, #8b5cf6, #10b981);
+      outline: none;
+    }
+    .bet-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 0 0 4px rgba(14,165,233,0.35), 0 4px 12px rgba(0,0,0,0.4);
+      transition: transform 0.15s;
+    }
+    .bet-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+    }
+    .pulse-live {
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+    .bet-btn {
+      background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+      transition: all 0.2s;
+    }
+    .bet-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(14, 165, 233, 0.35);
+    }
+    .bet-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .year-pill {
+      transition: all 0.15s;
+    }
+    .year-pill.active {
+      background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+      color: white;
+      border-color: transparent;
+      transform: scale(1.05);
+    }
+    /* Hide scrollbar for pills */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="antialiased">
+
+  <!-- Top bar -->
+  <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-[#070b14]/90 backdrop-blur-md">
+    <div class="max-w-3xl mx-auto px-4 h-12 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-md bg-gradient-to-br from-sky-500 to-violet-600 flex items-center justify-center text-xs font-bold">AF</div>
+        <span class="text-sm font-semibold tracking-tight">Agentic Finance</span>
+      </div>
+      <div class="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-live"></span>
+        <span id="totalBetsLabel">Live</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 pb-20">
+
+    <!-- HERO + PREDICTION FORM (primary engagement surface) -->
+    <section class="pt-8 pb-6 text-center">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-medium mb-5">
+        <span>Reply to @brian_armstrong</span>
+      </div>
+      
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-3">
+        Place your bet
+      </h1>
+      <p class="text-slate-400 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
+        When will <span class="text-violet-300">agent-to-agent</span> payment volume exceed <span class="text-emerald-300">human-to-human</span>?
+      </p>
+    </section>
+
+    <!-- THE BET CARD -->
+    <section id="betCard" class="glass rounded-2xl p-5 sm:p-6 mb-6 relative overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-br from-sky-500/5 via-transparent to-violet-500/5 pointer-events-none"></div>
+      
+      <div class="relative">
+        <!-- Year display -->
+        <div class="text-center mb-6">
+          <div class="text-[11px] uppercase tracking-widest text-slate-500 mb-1">Your prediction</div>
+          <div id="selectedYearDisplay" class="text-6xl sm:text-7xl font-bold font-mono tracking-tighter gradient-text">2032</div>
+        </div>
+
+        <!-- Quick year pills -->
+        <div class="flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-4 justify-center">
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300" data-year="2028">2028</button>
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300" data-year="2029">2029</button>
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300" data-year="2030">2030</button>
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300 active" data-year="2031">2031</button>
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300" data-year="2032">2032</button>
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300" data-year="2033">2033</button>
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300" data-year="2035">2035</button>
+          <button class="year-pill shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-700 text-slate-300" data-year="2038">2038+</button>
+        </div>
+
+        <!-- Fine slider -->
+        <div class="px-1 mb-6">
+          <input type="range" id="yearSlider" min="2027" max="2040" value="2032" class="bet-slider">
+          <div class="flex justify-between text-[10px] text-slate-600 mt-1.5 px-0.5">
+            <span>2027</span>
+            <span>2033</span>
+            <span>2040</span>
+          </div>
+        </div>
+
+        <!-- Optional fields -->
+        <div class="space-y-3 mb-5">
+          <div>
+            <label class="text-[11px] text-slate-500 mb-1 block">X handle (optional)</label>
+            <input id="handleInput" type="text" placeholder="@yourhandle" maxlength="40"
+              class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-sky-500/60 placeholder:text-slate-600">
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-500 mb-1 block">One-line reason (optional)</label>
+            <input id="reasonInput" type="text" placeholder="e.g. x402 + agent wallets scale faster than expected" maxlength="120"
+              class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-sky-500/60 placeholder:text-slate-600">
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <button id="submitBet" class="bet-btn w-full py-3.5 rounded-xl font-semibold text-white text-sm tracking-wide">
+          Place Bet →
+        </button>
+        
+        <p class="text-center text-[11px] text-slate-500 mt-3">
+          Free · No login · Results update live
+        </p>
+      </div>
+    </section>
+
+    <!-- AFTER BET STATE (hidden initially) -->
+    <section id="afterBet" class="hidden mb-6">
+      <div class="glass rounded-2xl p-5 sm:p-6 text-center border-sky-500/20">
+        <div class="text-emerald-400 text-sm font-medium mb-1">Bet locked in</div>
+        <div class="text-4xl font-bold font-mono gradient-text mb-2" id="yourBetYear">2032</div>
+        <p class="text-slate-400 text-sm mb-4" id="yourBetContext">You're with the crowd median.</p>
+        
+        <div class="flex gap-2 justify-center">
+          <button id="shareTweet" class="px-4 py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-medium hover:bg-sky-500/25 transition">
+            Share on X
+          </button>
+          <button id="changeBet" class="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium hover:bg-slate-700 transition">
+            Change bet
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- WISDOM OF THE CROWD -->
+    <section class="mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold flex items-center gap-2">
+          <span class="w-1.5 h-4 bg-violet-500 rounded-full"></span>
+          Wisdom of the Crowd
+        </h2>
+        <div class="text-xs text-slate-500">
+          <span id="betCount">0</span> bets
+        </div>
+      </div>
+
+      <!-- Big stats -->
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="glass rounded-xl p-3.5 text-center">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Median</div>
+          <div id="medianYear" class="text-2xl font-bold font-mono text-violet-300">—</div>
+        </div>
+        <div class="glass rounded-xl p-3.5 text-center">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">≤ 2030</div>
+          <div id="pctEarly" class="text-2xl font-bold font-mono text-sky-300">—</div>
+        </div>
+        <div class="glass rounded-xl p-3.5 text-center">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">2034+</div>
+          <div id="pctLate" class="text-2xl font-bold font-mono text-emerald-300">—</div>
+        </div>
+      </div>
+
+      <!-- Distribution chart -->
+      <div class="glass rounded-xl p-4 mb-5">
+        <div class="text-xs text-slate-500 mb-3">Distribution of bets</div>
+        <div class="h-48">
+          <canvas id="distChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Recent bets feed -->
+      <div class="glass rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400">Recent bets</span>
+          <span class="text-[10px] text-slate-600">Newest first</span>
+        </div>
+        <div id="recentFeed" class="divide-y divide-slate-800/80 max-h-72 overflow-y-auto">
+          <div class="px-4 py-6 text-center text-sm text-slate-500">Be the first to place a bet</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- My Research Take (collapsed by default for engagement focus) -->
+    <section class="mb-10">
+      <details class="glass rounded-xl overflow-hidden group">
+        <summary class="px-5 py-4 cursor-pointer list-none flex items-center justify-between hover:bg-slate-800/30 transition">
+          <span class="text-sm font-medium">Research view · Base case 2032</span>
+          <svg class="w-4 h-4 text-slate-500 group-open:rotate-180 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="px-5 pb-5 text-sm text-slate-400 leading-relaxed border-t border-slate-800 pt-4 space-y-3">
+          <p><strong class="text-slate-200">Transaction count</strong> likely flips 2029–2030. Pure value volume takes longer because most agent payments today are still micro ($0.26 avg on x402).</p>
+          <p>IDC sees 2.2B active agents by 2030. x402 already processed 160M+ payments. The rails exist. The question is how fast average agent transaction size grows beyond pure micropayments and how quickly enterprises grant real spending authority.</p>
+          <p class="text-xs text-slate-500">Optimistic 2030 · Base 2032 · Conservative 2035+</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-[11px] text-slate-600 space-y-1">
+      <p>Built as a reply to <a href="https://x.com/brian_armstrong/status/2084019794257301679" target="_blank" class="text-sky-500 hover:underline">@brian_armstrong</a></p>
+      <p>Not financial advice · Predictions stored anonymously</p>
+    </footer>
+  </main>
+
+  <script>
+    // ============================================================
+    // CONFIG — Replace these with your Supabase project values
+    // ============================================================
+    // 1. Go to supabase.com → New project (free)
+    // 2. SQL Editor → run the CREATE TABLE below
+    // 3. Project Settings → API → copy URL + anon public key
+    // 4. Paste them here and redeploy
+    //
+    // CREATE TABLE predictions (
+    //   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    //   year int NOT NULL,
+    //   handle text,
+    //   reason text,
+    //   created_at timestamptz DEFAULT now()
+    // );
+    //
+    // -- Allow public inserts + reads
+    // ALTER TABLE predictions ENABLE ROW LEVEL SECURITY;
+    // CREATE POLICY "Allow public insert" ON predictions FOR INSERT WITH CHECK (true);
+    // CREATE POLICY "Allow public read" ON predictions FOR SELECT USING (true);
+
+    const SUPABASE_URL = '';          // e.g. https://xxxx.supabase.co
+    const SUPABASE_ANON_KEY = '';     // e.g. eyJhbGciOi...
+
+    // Fallback: works immediately with localStorage so the page is usable
+    // even before you add Supabase keys.
+    // ============================================================
+
+    let selectedYear = 2032;
+    let allPredictions = [];
+    let distChart = null;
+    let hasBet = false;
+
+    // ---------- Helpers ----------
+    function $(id) { return document.getElementById(id); }
+
+    function getStorageKey() { return 'agentic_finance_bets_v1'; }
+
+    function loadLocal() {
+      try {
+        return JSON.parse(localStorage.getItem(getStorageKey()) || '[]');
+      } catch { return []; }
+    }
+
+    function saveLocal(arr) {
+      localStorage.setItem(getStorageKey(), JSON.stringify(arr));
+    }
+
+    // ---------- Supabase (optional) ----------
+    async function fetchFromSupabase() {
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/predictions?select=*&order=created_at.desc&limit=500`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) {
+        console.warn('Supabase fetch failed, using local', e);
+        return null;
+      }
+    }
+
+    async function insertToSupabase(payload) {
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/predictions`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(payload)
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    // ---------- Core data ----------
+    async function loadPredictions() {
+      const remote = await fetchFromSupabase();
+      if (remote && Array.isArray(remote)) {
+        allPredictions = remote.map(r => ({
+          year: r.year,
+          handle: r.handle || null,
+          reason: r.reason || null,
+          ts: r.created_at || Date.now()
+        }));
+      } else {
+        allPredictions = loadLocal();
+      }
+      renderCrowd();
+    }
+
+    async function submitPrediction(year, handle, reason) {
+      const entry = {
+        year,
+        handle: handle || null,
+        reason: reason || null,
+        ts: new Date().toISOString()
+      };
+
+      // Try remote first
+      const remoteOk = await insertToSupabase({
+        year,
+        handle: handle || null,
+        reason: reason || null
+      });
+
+      // Always keep local as backup / offline support
+      const local = loadLocal();
+      local.unshift(entry);
+      saveLocal(local.slice(0, 300)); // keep last 300 locally
+
+      allPredictions.unshift(entry);
+      return true;
+    }
+
+    // ---------- UI ----------
+    function updateYearUI(year) {
+      selectedYear = year;
+      $('selectedYearDisplay').textContent = year >= 2040 ? '2040+' : year;
+      document.querySelectorAll('.year-pill').forEach(btn => {
+        const y = parseInt(btn.dataset.year);
+        btn.classList.toggle('active', y === year || (year >= 2038 && y === 2038));
+      });
+      $('yearSlider').value = Math.min(year, 2040);
+    }
+
+    function renderCrowd() {
+      const n = allPredictions.length;
+      $('betCount').textContent = n;
+      $('totalBetsLabel').textContent = n > 0 ? `${n} bets live` : 'Live';
+
+      if (n === 0) {
+        $('medianYear').textContent = '—';
+        $('pctEarly').textContent = '—';
+        $('pctLate').textContent = '—';
+        $('recentFeed').innerHTML = `<div class="px-4 py-6 text-center text-sm text-slate-500">Be the first to place a bet</div>`;
+        updateChart([]);
+        return;
+      }
+
+      // Median
+      const years = allPredictions.map(p => p.year).sort((a, b) => a - b);
+      const mid = Math.floor(years.length / 2);
+      const median = years.length % 2 ? years[mid] : Math.round((years[mid - 1] + years[mid]) / 2);
+      $('medianYear').textContent = median;
+
+      // Buckets
+      const early = years.filter(y => y <= 2030).length;
+      const late = years.filter(y => y >= 2034).length;
+      $('pctEarly').textContent = Math.round((early / n) * 100) + '%';
+      $('pctLate').textContent = Math.round((late / n) * 100) + '%';
+
+      // Recent feed
+      const feed = allPredictions.slice(0, 25).map(p => {
+        const handle = p.handle ? `<span class="text-sky-400">${escapeHtml(p.handle)}</span>` : `<span class="text-slate-500">anon</span>`;
+        const reason = p.reason ? `<div class="text-[11px] text-slate-500 mt-0.5 truncate">${escapeHtml(p.reason)}</div>` : '';
+        return `
+          <div class="px-4 py-3 flex items-start gap-3">
+            <div class="font-mono font-semibold text-violet-300 w-12 shrink-0">${p.year}</div>
+            <div class="min-w-0 flex-1">
+              <div class="text-xs">${handle}</div>
+              ${reason}
+            </div>
+          </div>`;
+      }).join('');
+      $('recentFeed').innerHTML = feed;
+
+      updateChart(years);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function updateChart(years) {
+      // Build histogram buckets 2027–2040
+      const buckets = {};
+      for (let y = 2027; y <= 2040; y++) buckets[y] = 0;
+      years.forEach(y => {
+        const key = Math.min(Math.max(y, 2027), 2040);
+        buckets[key]++;
+      });
+
+      const labels = Object.keys(buckets);
+      const data = Object.values(buckets);
+
+      if (distChart) {
+        distChart.data.labels = labels;
+        distChart.data.datasets[0].data = data;
+        distChart.update();
+        return;
+      }
+
+      const ctx = $('distChart').getContext('2d');
+      distChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: labels.map(y => {
+              const yy = parseInt(y);
+              if (yy <= 2030) return 'rgba(56, 189, 248, 0.7)';
+              if (yy <= 2033) return 'rgba(167, 139, 250, 0.7)';
+              return 'rgba(52, 211, 153, 0.7)';
+            }),
+            borderRadius: 4,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f1623',
+              titleColor: '#e2e8f0',
+              bodyColor: '#94a3b8',
+              borderColor: '#1c2536',
+              borderWidth: 1,
+              callbacks: {
+                title: (items) => items[0].label,
+                label: (item) => `${item.raw} bet${item.raw === 1 ? '' : 's'}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(28, 37, 54, 0.8)' },
+              ticks: { color: '#64748b', font: { size: 10 }, stepSize: 1 }
+            }
+          }
+        }
+      });
+    }
+
+    // ---------- Events ----------
+    document.querySelectorAll('.year-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const y = parseInt(btn.dataset.year);
+        updateYearUI(y === 2038 ? 2038 : y);
+      });
+    });
+
+    $('yearSlider').addEventListener('input', (e) => {
+      updateYearUI(parseInt(e.target.value));
+    });
+
+    $('submitBet').addEventListener('click', async () => {
+      const btn = $('submitBet');
+      btn.disabled = true;
+      btn.textContent = 'Locking…';
+
+      const handle = $('handleInput').value.trim();
+      const reason = $('reasonInput').value.trim();
+
+      await submitPrediction(selectedYear, handle, reason);
+
+      // Celebration
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.65 },
+        colors: ['#38bdf8', '#a78bfa', '#34d399', '#f472b6']
+      });
+
+      // Switch to after-bet state
+      hasBet = true;
+      $('betCard').classList.add('hidden');
+      $('afterBet').classList.remove('hidden');
+      $('yourBetYear').textContent = selectedYear >= 2040 ? '2040+' : selectedYear;
+
+      // Context relative to median
+      const years = allPredictions.map(p => p.year).sort((a,b)=>a-b);
+      const mid = Math.floor(years.length / 2);
+      const median = years.length ? (years.length % 2 ? years[mid] : Math.round((years[mid-1]+years[mid])/2)) : selectedYear;
+      let ctx = '';
+      if (selectedYear < median - 1) ctx = `Earlier than the current median (${median}).`;
+      else if (selectedYear > median + 1) ctx = `Later than the current median (${median}).`;
+      else ctx = `Right on the crowd median (${median}).`;
+      $('yourBetContext').textContent = ctx;
+
+      renderCrowd();
+      btn.disabled = false;
+      btn.textContent = 'Place Bet →';
+    });
+
+    $('changeBet').addEventListener('click', () => {
+      $('afterBet').classList.add('hidden');
+      $('betCard').classList.remove('hidden');
+      hasBet = false;
+    });
+
+    $('shareTweet').addEventListener('click', () => {
+      const year = selectedYear >= 2040 ? '2040+' : selectedYear;
+      const text = `I bet the Agentic Finance Flippening happens in ${year}.\n\nWhen do AI agents start transacting more than humans?\n\nJoin the live prediction market →`;
+      const url = window.location.href;
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    });
+
+    // ---------- Init ----------
+    updateYearUI(2032);
+    loadPredictions();
+
+    // Optional: refresh every 30s if using Supabase so it feels live
+    setInterval(() => {
+      if (SUPABASE_URL && SUPABASE_ANON_KEY) loadPredictions();
+    }, 30000);
+  </script>
+</body>
+</html>
