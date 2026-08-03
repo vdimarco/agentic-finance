@@ -79,34 +79,6 @@
       cursor: pointer;
       box-shadow: 0 0 0 5px rgba(14,165,233,0.35), 0 4px 14px rgba(0,0,0,0.45);
     }
-    .model-slider {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 6px;
-      border-radius: 3px;
-      background: #1c2536;
-      outline: none;
-    }
-    .model-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: #38bdf8;
-      cursor: pointer;
-      border: 3px solid #0f1623;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    }
-    .model-slider::-moz-range-thumb {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: #38bdf8;
-      cursor: pointer;
-      border: 3px solid #0f1623;
-    }
-    .model-slider { min-height: 22px; }
     .pulse-live {
       animation: pulse 1.8s ease-in-out infinite;
     }
@@ -454,8 +426,12 @@
           </div>
         </div>
 
-        <p class="text-[10px] text-slate-600 leading-relaxed">
-          Interactions are stored locally and can be sent to Supabase once connected (so we can see which assumptions people explore most).
+        <button id="modelToBet" class="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-300 text-sm font-medium active:scale-95 transition">
+          Bet 2032 →
+        </button>
+
+        <p id="modelRunsLabel" class="text-[10px] text-slate-600 leading-relaxed text-center">
+          Model runs are logged anonymously.
         </p>
       </div>
     </section>
@@ -466,67 +442,13 @@
         <summary class="px-4 py-4 cursor-pointer list-none flex items-center justify-between active:bg-slate-800/40 transition">
           <div>
             <div class="text-sm font-semibold">Research view</div>
-            <div id="researchSub" class="text-xs text-slate-500 mt-0.5">Interactive model · 2032</div>
+            <div class="text-xs text-slate-500 mt-0.5">Base case · 2032</div>
           </div>
           <svg class="w-5 h-5 text-slate-500 group-open:rotate-180 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
         </summary>
         
         <div class="px-4 pb-5 text-sm text-slate-400 leading-relaxed border-t border-slate-800 pt-4 space-y-4">
           
-          <!-- INTERACTIVE MODEL -->
-          <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-4">
-            <div class="flex items-center justify-between mb-3">
-              <div class="text-slate-200 font-medium">Run your own model</div>
-              <button id="modelReset" class="text-[11px] text-slate-500 active:text-slate-300 transition">Reset</button>
-            </div>
-
-            <div class="text-center mb-4">
-              <div class="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Your flip year</div>
-              <div id="modelYear" class="text-5xl font-bold font-mono tracking-tighter gradient-text leading-none">2032</div>
-              <div id="modelNote" class="text-[11px] text-slate-500 mt-1.5">Value volume crosses in 6.1 years.</div>
-            </div>
-
-            <div class="space-y-4">
-              <div>
-                <div class="flex items-baseline justify-between mb-1.5">
-                  <label for="mAgentGrowth" class="text-[12px] text-slate-400">Agent count growth</label>
-                  <span id="mAgentGrowthVal" class="font-mono text-[12px] text-sky-300">140%/yr</span>
-                </div>
-                <input type="range" id="mAgentGrowth" min="20" max="300" step="5" value="140" class="model-slider">
-              </div>
-
-              <div>
-                <div class="flex items-baseline justify-between mb-1.5">
-                  <label for="mTxSize" class="text-[12px] text-slate-400">Avg agent tx size growth</label>
-                  <span id="mTxSizeVal" class="font-mono text-[12px] text-sky-300">55%/yr</span>
-                </div>
-                <input type="range" id="mTxSize" min="0" max="150" step="5" value="55" class="model-slider">
-              </div>
-
-              <div>
-                <div class="flex items-baseline justify-between mb-1.5">
-                  <label for="mHumanGrowth" class="text-[12px] text-slate-400">Human payment growth</label>
-                  <span id="mHumanGrowthVal" class="font-mono text-[12px] text-sky-300">6%/yr</span>
-                </div>
-                <input type="range" id="mHumanGrowth" min="0" max="15" step="1" value="6" class="model-slider">
-              </div>
-
-              <div>
-                <div class="flex items-baseline justify-between mb-1.5">
-                  <label for="mStartShare" class="text-[12px] text-slate-400">Agent share of value today</label>
-                  <span id="mStartShareVal" class="font-mono text-[12px] text-sky-300">0.08%</span>
-                </div>
-                <input type="range" id="mStartShare" min="1" max="200" step="1" value="8" class="model-slider">
-              </div>
-            </div>
-
-            <button id="modelToBet" class="w-full mt-4 py-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-300 text-sm font-medium active:scale-95 transition">
-              Bet 2032 →
-            </button>
-
-            <p id="modelRunsLabel" class="text-center text-[10px] text-slate-600 mt-2.5">Model runs are logged anonymously</p>
-          </div>
-
           <div>
             <div class="text-slate-200 font-medium mb-1">Base case prediction</div>
             <p><strong class="text-white">Value volume flip ≈ 2032</strong> (±2 years).<br>
@@ -642,7 +564,6 @@
       localStorage.setItem(getStorageKey(), JSON.stringify(arr));
     }
 
-<<<<<<< HEAD
     // ---------- Supabase REST helpers ----------
 
     function sbHeaders(extra) {
@@ -665,9 +586,11 @@
         year: Number(row.year),
         handle: row.handle || null,
         reason: row.reason || null,
-        ts: row.created_at || row.ts || new Date().toISOString()
+        ts: row.created_at || row.ts || new Date().toISOString(),
+        source: row.source || 'user'
       };
-=======
+    }
+
     function mergeWithSeeds(userPredictions) {
       // Always include seed predictions from the original tweet
       // User predictions (local/remote) are layered on top
@@ -676,7 +599,6 @@
       // Sort newest first
       combined.sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
       return combined;
->>>>>>> origin/main
     }
 
     async function fetchFromSupabase() {
@@ -725,33 +647,19 @@
 
     async function loadPredictions() {
       const remote = await fetchFromSupabase();
-<<<<<<< HEAD
+      let userPreds;
       if (remote) {
         usingRemote = true;
-        allPredictions = remote;
+        userPreds = remote;
       } else {
         usingRemote = false;
-        allPredictions = loadLocal().map(normalizeRow);
-=======
-      let userPreds = [];
-      if (remote && Array.isArray(remote)) {
-        userPreds = remote.map(r => ({
-          year: r.year,
-          handle: r.handle || null,
-          reason: r.reason || null,
-          ts: r.created_at || Date.now(),
-          source: 'user'
-        }));
-      } else {
-        userPreds = loadLocal().map(p => ({ ...p, source: p.source || 'user' }));
->>>>>>> origin/main
+        userPreds = loadLocal().map(normalizeRow);
       }
       allPredictions = mergeWithSeeds(userPreds);
       renderCrowd();
     }
 
     async function submitPrediction(year, handle, reason) {
-<<<<<<< HEAD
       const payload = {
         year: Number(year),
         handle: handle ? handle.slice(0, 40) : null,
@@ -766,7 +674,8 @@
         const remote = await fetchFromSupabase();
         if (remote) {
           usingRemote = true;
-          allPredictions = remote;
+          // Rebuild with seeds so the chart always includes original tweet replies
+          allPredictions = mergeWithSeeds(remote);
           return true;
         }
       }
@@ -775,18 +684,8 @@
       const local = loadLocal();
       local.unshift(entry);
       saveLocal(local.slice(0, 300));
-      allPredictions = [entry].concat(allPredictions);
+      allPredictions = mergeWithSeeds(local.map(normalizeRow));
       return Boolean(saved);
-=======
-      const entry = { year, handle: handle || null, reason: reason || null, ts: new Date().toISOString(), source: 'user' };
-      await insertToSupabase({ year, handle: handle || null, reason: reason || null });
-      const local = loadLocal();
-      local.unshift(entry);
-      saveLocal(local.slice(0, 300));
-      // Rebuild with seeds so chart always includes original tweet replies
-      allPredictions = mergeWithSeeds(local);
-      return true;
->>>>>>> origin/main
     }
 
     function updateYearUI(year) {
@@ -802,12 +701,8 @@
     function renderCrowd() {
       const n = allPredictions.length;
       $('betCount').textContent = n;
-<<<<<<< HEAD
       const suffix = usingRemote ? '' : ' · offline';
-      $('totalBetsLabel').textContent = (n > 0 ? `${n} bets live` : 'Live') + suffix;
-=======
-      $('totalBetsLabel').textContent = n > 0 ? `${n} live` : 'Live';
->>>>>>> origin/main
+      $('totalBetsLabel').textContent = (n > 0 ? `${n} live` : 'Live') + suffix;
 
       if (n === 0) {
         $('medianYear').textContent = '—';
@@ -983,81 +878,22 @@
       window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
     });
 
-<<<<<<< HEAD
-    // ============================================================
-    // INTERACTIVE MODEL — agent vs human payment value crossover
-    // ------------------------------------------------------------
-    // A2A(t) = s0        · (1+agentGrowth)^t · (1+txSizeGrowth)^t
-    // H2H(t) = (1 - s0)  · (1+humanGrowth)^t
-    // Solve A2A(t) = H2H(t) for t, then flipYear = BASE_YEAR + ceil(t).
-    // ============================================================
+    // ---------- Interactive model ----------
     const MODEL_TABLE = 'model_interactions';
-    const BASE_YEAR = 2026;
-    const MODEL_DEFAULTS = { agent: 140, tx: 55, human: 6, share: 8 }; // share is in hundredths of a %
-
-    let modelLogTimer = null;
     let lastLoggedSignature = null;
 
-    function readModelInputs() {
-      return {
-        agent_growth: parseInt($('mAgentGrowth').value, 10),
-        tx_size_growth: parseInt($('mTxSize').value, 10),
-        human_growth: parseInt($('mHumanGrowth').value, 10),
-        // slider is 1–200 → 0.01%–2.00% of today's payment value
-        start_share: Number((parseInt($('mStartShare').value, 10) / 100).toFixed(2))
-      };
-    }
+    async function trackModelInteraction(payload) {
+      // Local tracking (always)
+      try {
+        const key = 'agentic_model_interactions_v1';
+        const arr = JSON.parse(localStorage.getItem(key) || '[]');
+        arr.unshift({ ...payload, ts: new Date().toISOString() });
+        localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
+      } catch {}
 
-    function solveFlip(inputs) {
-      const s0 = inputs.start_share / 100;             // fraction of total value
-      const ratio0 = s0 / (1 - s0);                    // agent : human today
-      const growth =
-        ((1 + inputs.agent_growth / 100) * (1 + inputs.tx_size_growth / 100)) /
-        (1 + inputs.human_growth / 100);
+      if (!SUPABASE_ENABLED) return;
 
-      if (growth <= 1) return { years: null, year: null };
-
-      const years = Math.log(1 / ratio0) / Math.log(growth);
-      return { years, year: BASE_YEAR + Math.ceil(years) };
-    }
-
-    function renderModel() {
-      const inputs = readModelInputs();
-      const { years, year } = solveFlip(inputs);
-
-      $('mAgentGrowthVal').textContent = inputs.agent_growth + '%/yr';
-      $('mTxSizeVal').textContent = inputs.tx_size_growth + '%/yr';
-      $('mHumanGrowthVal').textContent = inputs.human_growth + '%/yr';
-      $('mStartShareVal').textContent = inputs.start_share.toFixed(2) + '%';
-
-      const btn = $('modelToBet');
-
-      if (year === null || year > 2100) {
-        $('modelYear').textContent = 'Never';
-        $('modelNote').textContent = 'Human volume grows at least as fast — no crossover.';
-        $('researchSub').textContent = 'Interactive model · no flip';
-        btn.disabled = true;
-        btn.classList.add('opacity-40');
-        btn.textContent = 'No year to bet';
-        return { inputs, year: null };
-      }
-
-      $('modelYear').textContent = year;
-      $('modelNote').textContent = `Value volume crosses in ${years.toFixed(1)} years.`;
-      $('researchSub').textContent = `Interactive model · ${year}`;
-
-      const betYear = Math.min(Math.max(year, 2027), 2040);
-      btn.disabled = false;
-      btn.classList.remove('opacity-40');
-      btn.textContent = `Bet ${betYear >= 2040 ? '2040+' : betYear} →`;
-
-      return { inputs, year };
-    }
-
-    async function logModelRun(inputs, year) {
-      if (!SUPABASE_ENABLED || year === null) return;
-
-      const payload = Object.assign({ predicted_year: year }, inputs);
+      // Skip if the settled assumptions are identical to the last logged run.
       const signature = JSON.stringify(payload);
       if (signature === lastLoggedSignature) return;
       lastLoggedSignature = signature;
@@ -1088,74 +924,22 @@
         if (!res.ok) return;
 
         const rows = await res.json();
-        if (!Array.isArray(rows) || rows.length === 0) return;
+        if (!Array.isArray(rows) || !rows.length) return;
 
         const years = rows.map(r => Number(r.predicted_year)).filter(Number.isFinite).sort((a, b) => a - b);
         if (!years.length) return;
 
         const mid = Math.floor(years.length / 2);
         const median = years.length % 2 ? years[mid] : Math.round((years[mid - 1] + years[mid]) / 2);
-        $('modelRunsLabel').textContent = `${years.length} model run${years.length === 1 ? '' : 's'} · median output ${median}`;
+        $('modelRunsLabel').textContent =
+          `${years.length} model run${years.length === 1 ? '' : 's'} logged · median output ${median}`;
       } catch (e) {
         console.warn('[supabase] model runs error', e);
       }
     }
 
-    function onModelInput() {
-      const { inputs, year } = renderModel();
-      clearTimeout(modelLogTimer);
-      // Log once the user settles, not on every pixel of slider travel.
-      modelLogTimer = setTimeout(() => logModelRun(inputs, year), 1200);
-    }
-
-    ['mAgentGrowth', 'mTxSize', 'mHumanGrowth', 'mStartShare'].forEach(id => {
-      $(id).addEventListener('input', onModelInput);
-    });
-
-    $('modelReset').addEventListener('click', () => {
-      $('mAgentGrowth').value = MODEL_DEFAULTS.agent;
-      $('mTxSize').value = MODEL_DEFAULTS.tx;
-      $('mHumanGrowth').value = MODEL_DEFAULTS.human;
-      $('mStartShare').value = MODEL_DEFAULTS.share;
-      renderModel();
-    });
-
-    $('modelToBet').addEventListener('click', () => {
-      const { year } = renderModel();
-      if (year === null) return;
-
-      updateYearUI(Math.min(Math.max(year, 2027), 2040));
-      $('afterBet').classList.add('hidden');
-      $('betCard').classList.remove('hidden');
-      $('betCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-=======
-    // ---------- Interactive model ----------
-    function trackModelInteraction(payload) {
-      // Local tracking (always)
-      try {
-        const key = 'agentic_model_interactions_v1';
-        const arr = JSON.parse(localStorage.getItem(key) || '[]');
-        arr.unshift({ ...payload, ts: new Date().toISOString() });
-        localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
-      } catch {}
-
-      // Optional Supabase (when keys are present)
-      // You can later create a table: model_interactions (agent_growth, tx_size_growth, human_growth, start_share, predicted_year, created_at)
-      if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-        fetch(`${SUPABASE_URL}/rest/v1/model_interactions`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      }
-    }
-
     let modelTrackTimeout = null;
+    let lastModelYear = 2032;
     function updateModel() {
       const agentG = parseInt($('agentGrowth').value) / 100;
       const txSizeG = parseInt($('txSizeGrowth').value) / 100;
@@ -1202,6 +986,11 @@
                    year <= 2036 ? 'Slower adoption / smaller avg tx' : 'Very conservative path';
       $('modelNote').textContent = note;
 
+      // Let the user bet the year their own assumptions produced.
+      lastModelYear = year;
+      const betYear = Math.min(Math.max(year, 2027), 2040);
+      $('modelToBet').textContent = `Bet ${betYear >= 2040 ? '2040+' : betYear} →`;
+
       // Debounced tracking so we don't spam on every pixel of slider movement
       clearTimeout(modelTrackTimeout);
       modelTrackTimeout = setTimeout(() => {
@@ -1217,18 +1006,20 @@
 
     ['agentGrowth', 'txSizeGrowth', 'humanGrowth', 'startShare'].forEach(id => {
       $(id).addEventListener('input', updateModel);
->>>>>>> origin/main
+    });
+
+    $('modelToBet').addEventListener('click', () => {
+      updateYearUI(Math.min(Math.max(lastModelYear, 2027), 2040));
+      $('afterBet').classList.add('hidden');
+      $('betCard').classList.remove('hidden');
+      $('betCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     // Init
     updateYearUI(2032);
     loadPredictions();
-<<<<<<< HEAD
-    renderModel();
-    loadModelRuns();
-=======
     updateModel();
->>>>>>> origin/main
+    loadModelRuns();
 
     // Poll for new bets, but only when the tab is visible.
     setInterval(() => {
