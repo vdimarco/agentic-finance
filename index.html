@@ -227,9 +227,10 @@
           Wisdom of the Crowd
         </h2>
         <div class="text-xs text-slate-500">
-          <span id="betCount">0</span> bets
+          <span id="betCount">0</span> predictions
         </div>
       </div>
+      <p class="text-[11px] text-slate-500 mb-3">Includes live bets + replies from the original tweet</p>
 
       <div class="grid grid-cols-3 gap-2.5 mb-4">
         <div class="glass rounded-xl p-3 text-center">
@@ -492,6 +493,22 @@
     let allPredictions = [];
     let distChart = null;
 
+    // Seed predictions from real replies to @brian_armstrong's tweet
+    const SEED_PREDICTIONS = [
+      { year: 2028, handle: '@AGIXBull', reason: 'No later than 2028', source: 'tweet', ts: '2026-08-03T03:13:54Z' },
+      { year: 2028, handle: '@sebuzdugan', reason: '2028 at best unless agents get scoped payment auth', source: 'tweet', ts: '2026-08-03T01:25:00Z' },
+      { year: 2028, handle: '@bittenbin', reason: 'Late 2028 — A2A exceeds H2H + H2A + A2H', source: 'tweet', ts: '2026-08-03T03:43:16Z' },
+      { year: 2029, handle: '@k9dreamer_btc', reason: 'Count flips first, value later. My guess: 2029', source: 'tweet', ts: '2026-08-03T03:53:27Z' },
+      { year: 2030, handle: '@Humanii_X', reason: '2029–2031 for the real flippening', source: 'tweet', ts: '2026-08-03T03:15:35Z' },
+      { year: 2029, handle: '@Padierfind', reason: '2–3 years. MasumiNetwork will capture a large portion', source: 'tweet', ts: '2026-08-02T21:39:28Z' },
+      { year: 2032, handle: '@Jason96959448', reason: '2032', source: 'tweet', ts: '2026-08-03T05:27:35Z' },
+      { year: 2032, handle: '@NeoSoulAI', reason: 'Count by 2028, dollar volume maybe 2032', source: 'tweet', ts: '2026-08-03T04:22:20Z' },
+      { year: 2033, handle: '@permaweave', reason: '2033', source: 'tweet', ts: '2026-08-03T02:06:58Z' },
+      { year: 2036, handle: '@drGhostinOO7', reason: '2036', source: 'tweet', ts: '2026-08-03T04:27:00Z' },
+      { year: 2029, handle: '@gbhakuni85', reason: '2028–2030. Builders are moving fast', source: 'tweet', ts: '2026-08-03T01:39:29Z' },
+      { year: 2028, handle: '@Safeendo', reason: '2 years', source: 'tweet', ts: '2026-08-03T02:16:17Z' },
+    ];
+
     function $(id) { return document.getElementById(id); }
 
     function getStorageKey() { return 'agentic_finance_bets_v1'; }
@@ -503,6 +520,16 @@
 
     function saveLocal(arr) {
       localStorage.setItem(getStorageKey(), JSON.stringify(arr));
+    }
+
+    function mergeWithSeeds(userPredictions) {
+      // Always include seed predictions from the original tweet
+      // User predictions (local/remote) are layered on top
+      const seeds = SEED_PREDICTIONS.map(s => ({ ...s }));
+      const combined = [...userPredictions, ...seeds];
+      // Sort newest first
+      combined.sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
+      return combined;
     }
 
     async function fetchFromSupabase() {
@@ -541,26 +568,30 @@
 
     async function loadPredictions() {
       const remote = await fetchFromSupabase();
+      let userPreds = [];
       if (remote && Array.isArray(remote)) {
-        allPredictions = remote.map(r => ({
+        userPreds = remote.map(r => ({
           year: r.year,
           handle: r.handle || null,
           reason: r.reason || null,
-          ts: r.created_at || Date.now()
+          ts: r.created_at || Date.now(),
+          source: 'user'
         }));
       } else {
-        allPredictions = loadLocal();
+        userPreds = loadLocal().map(p => ({ ...p, source: p.source || 'user' }));
       }
+      allPredictions = mergeWithSeeds(userPreds);
       renderCrowd();
     }
 
     async function submitPrediction(year, handle, reason) {
-      const entry = { year, handle: handle || null, reason: reason || null, ts: new Date().toISOString() };
+      const entry = { year, handle: handle || null, reason: reason || null, ts: new Date().toISOString(), source: 'user' };
       await insertToSupabase({ year, handle: handle || null, reason: reason || null });
       const local = loadLocal();
       local.unshift(entry);
       saveLocal(local.slice(0, 300));
-      allPredictions.unshift(entry);
+      // Rebuild with seeds so chart always includes original tweet replies
+      allPredictions = mergeWithSeeds(local);
       return true;
     }
 
@@ -577,7 +608,7 @@
     function renderCrowd() {
       const n = allPredictions.length;
       $('betCount').textContent = n;
-      $('totalBetsLabel').textContent = n > 0 ? `${n} bets live` : 'Live';
+      $('totalBetsLabel').textContent = n > 0 ? `${n} live` : 'Live';
 
       if (n === 0) {
         $('medianYear').textContent = '—';
@@ -598,14 +629,20 @@
       $('pctEarly').textContent = Math.round((early / n) * 100) + '%';
       $('pctLate').textContent = Math.round((late / n) * 100) + '%';
 
-      const feed = allPredictions.slice(0, 25).map(p => {
-        const handle = p.handle ? `<span class="text-sky-400">${escapeHtml(p.handle)}</span>` : `<span class="text-slate-500">anon</span>`;
+      const feed = allPredictions.slice(0, 30).map(p => {
+        const isTweet = p.source === 'tweet';
+        const handle = p.handle
+          ? `<span class="text-sky-400">${escapeHtml(p.handle)}</span>`
+          : `<span class="text-slate-500">anon</span>`;
+        const badge = isTweet
+          ? `<span class="ml-1.5 text-[9px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/20">from X</span>`
+          : '';
         const reason = p.reason ? `<div class="text-[11px] text-slate-500 mt-0.5 truncate">${escapeHtml(p.reason)}</div>` : '';
         return `
-          <div class="px-4 py-3.5 flex items-start gap-3">
+          <div class="px-4 py-3.5 flex items-start gap-3 ${isTweet ? 'bg-sky-500/[0.03]' : ''}">
             <div class="font-mono font-semibold text-violet-300 w-12 shrink-0 pt-0.5">${p.year}</div>
             <div class="min-w-0 flex-1">
-              <div class="text-xs">${handle}</div>
+              <div class="text-xs flex items-center flex-wrap">${handle}${badge}</div>
               ${reason}
             </div>
           </div>`;
