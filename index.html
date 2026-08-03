@@ -400,17 +400,25 @@
 
   <script>
     // ============================================================
-    // SUPABASE CONFIG — paste your keys here when ready
+    // SUPABASE CONFIG
+    // ------------------------------------------------------------
+    // This is a static site, so there is no build step to inline
+    // process.env. Values below mirror the project env vars:
+    //   NEXT_PUBLIC_SUPABASE_URL
+    //   NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // Both are public, RLS-protected values — safe to ship client-side.
+    // If either is blank, the app falls back to localStorage.
     // ============================================================
-    const SUPABASE_URL = '';          // e.g. https://xxxx.supabase.co
-    const SUPABASE_ANON_KEY = '';     // e.g. eyJhbGciOi...
+    const SUPABASE_URL = 'https://fggqeoqxolbemxfofhce.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZ3Flb3F4b2xiZW14Zm9maGNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MjY2ODEsImV4cCI6MjEwMTMwMjY4MX0.z4F6xqDs7x8hzDP2GuBLgi7SryrY6_MOR83GtgFchT8';
 
-    // Works immediately with localStorage until you add Supabase keys.
-    // ============================================================
+    const TABLE = 'predictions';
+    const SUPABASE_ENABLED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
     let selectedYear = 2032;
     let allPredictions = [];
     let distChart = null;
+    let usingRemote = false;
 
     function $(id) { return document.getElementById(id); }
 
@@ -425,63 +433,114 @@
       localStorage.setItem(getStorageKey(), JSON.stringify(arr));
     }
 
+    // ---------- Supabase REST helpers ----------
+
+    function sbHeaders(extra) {
+      return Object.assign({
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }, extra || {});
+    }
+
+    function sbFetch(path, init) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      return fetch(`${SUPABASE_URL}/rest/v1/${path}`, Object.assign({ signal: controller.signal }, init))
+        .finally(() => clearTimeout(timer));
+    }
+
+    function normalizeRow(row) {
+      return {
+        id: row.id || null,
+        year: Number(row.year),
+        handle: row.handle || null,
+        reason: row.reason || null,
+        ts: row.created_at || row.ts || new Date().toISOString()
+      };
+    }
+
     async function fetchFromSupabase() {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+      if (!SUPABASE_ENABLED) return null;
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/predictions?select=*&order=created_at.desc&limit=500`, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        });
-        if (!res.ok) return null;
-        return await res.json();
+        const res = await sbFetch(
+          `${TABLE}?select=id,year,handle,reason,created_at&order=created_at.desc&limit=500`,
+          { headers: sbHeaders() }
+        );
+        if (!res.ok) {
+          console.warn('[supabase] read failed', res.status, await res.text());
+          return null;
+        }
+        const rows = await res.json();
+        return Array.isArray(rows) ? rows.map(normalizeRow) : null;
       } catch (e) {
-        console.warn('Supabase fetch failed', e);
+        console.warn('[supabase] read error', e);
         return null;
       }
     }
 
     async function insertToSupabase(payload) {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+      if (!SUPABASE_ENABLED) return null;
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/predictions`, {
+        const res = await sbFetch(TABLE, {
           method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          headers: sbHeaders({
             'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
+            'Prefer': 'return=representation'
+          }),
           body: JSON.stringify(payload)
         });
-        return res.ok;
-      } catch { return false; }
+        if (!res.ok) {
+          console.warn('[supabase] insert failed', res.status, await res.text());
+          return null;
+        }
+        const rows = await res.json();
+        return Array.isArray(rows) && rows[0] ? normalizeRow(rows[0]) : null;
+      } catch (e) {
+        console.warn('[supabase] insert error', e);
+        return null;
+      }
     }
+
+    // ---------- Load / submit ----------
 
     async function loadPredictions() {
       const remote = await fetchFromSupabase();
-      if (remote && Array.isArray(remote)) {
-        allPredictions = remote.map(r => ({
-          year: r.year,
-          handle: r.handle || null,
-          reason: r.reason || null,
-          ts: r.created_at || Date.now()
-        }));
+      if (remote) {
+        usingRemote = true;
+        allPredictions = remote;
       } else {
-        allPredictions = loadLocal();
+        usingRemote = false;
+        allPredictions = loadLocal().map(normalizeRow);
       }
       renderCrowd();
     }
 
     async function submitPrediction(year, handle, reason) {
-      const entry = { year, handle: handle || null, reason: reason || null, ts: new Date().toISOString() };
-      await insertToSupabase({ year, handle: handle || null, reason: reason || null });
+      const payload = {
+        year: Number(year),
+        handle: handle ? handle.slice(0, 40) : null,
+        reason: reason ? reason.slice(0, 200) : null
+      };
+
+      const saved = await insertToSupabase(payload);
+      const entry = saved || normalizeRow(Object.assign({ ts: new Date().toISOString() }, payload));
+
+      if (saved) {
+        // Re-read so the feed reflects everyone else's bets too.
+        const remote = await fetchFromSupabase();
+        if (remote) {
+          usingRemote = true;
+          allPredictions = remote;
+          return true;
+        }
+      }
+
+      // Supabase unavailable (or not configured) — persist locally instead.
       const local = loadLocal();
       local.unshift(entry);
       saveLocal(local.slice(0, 300));
-      allPredictions.unshift(entry);
-      return true;
+      allPredictions = [entry].concat(allPredictions);
+      return Boolean(saved);
     }
 
     function updateYearUI(year) {
@@ -497,7 +556,8 @@
     function renderCrowd() {
       const n = allPredictions.length;
       $('betCount').textContent = n;
-      $('totalBetsLabel').textContent = n > 0 ? `${n} bets live` : 'Live';
+      const suffix = usingRemote ? '' : ' · offline';
+      $('totalBetsLabel').textContent = (n > 0 ? `${n} bets live` : 'Live') + suffix;
 
       if (n === 0) {
         $('medianYear').textContent = '—';
@@ -671,9 +731,14 @@
     updateYearUI(2032);
     loadPredictions();
 
+    // Poll for new bets, but only when the tab is visible.
     setInterval(() => {
-      if (SUPABASE_URL && SUPABASE_ANON_KEY) loadPredictions();
+      if (SUPABASE_ENABLED && document.visibilityState === 'visible') loadPredictions();
     }, 30000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (SUPABASE_ENABLED && document.visibilityState === 'visible') loadPredictions();
+    });
   </script>
 </body>
 </html>
